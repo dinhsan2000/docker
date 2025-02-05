@@ -1,0 +1,91 @@
+# Description: Docker compose file for database services
+# PORT Format: HOST:PORT (e.g. localhost:3306) or IP:PORT (e.g.192.168.1.1:3306).
+# Volumes: mysql_data, appredis, mongodata, mongolog
+# Networks: app-network
+# Healthcheck: test, retries, timeout
+services:
+    app:
+        build:
+            context: .
+            dockerfile: Dockerfile
+        container_name: app
+        tty: true
+        environment:
+            SERVICE_NAME: app
+            SERVICE_TAGS: local
+        working_dir: /usr/share/nginx/html
+        networks:
+            - app-network
+        ports:
+            - "8003:80"
+        volumes:
+            - ./:/usr/share/nginx/html
+            - ./default.conf:/etc/nginx/conf.d/default.conf
+        env_file: ./.env
+        depends_on:
+            - mysql
+            - redis
+            - mongodb
+    mysql:
+        image: mysql:8.0
+        container_name: mysql
+        restart: always
+        environment:
+            MYSQL_ROOT_PASSWORD: "password"
+            MYSQL_USER: "user"
+            MYSQL_PASSWORD: "password"
+            MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+        ports:
+            - "3307:3306"
+        volumes:
+            - mysql_data:/var/lib/mysql
+        networks:
+            - app-network
+        healthcheck:
+            test: ["CMD", "mysqladmin", "ping", "-p password"]
+            retries: 3
+            timeout: 5s
+
+    redis:
+        image: redis:alpine
+        container_name: redis
+        restart: always
+        ports:
+            - "6379:6379"
+        volumes:
+            - "appredis:/data"
+        networks:
+            - app-network
+        healthcheck:
+            test: ["CMD", "redis-cli", "ping"]
+            retries: 3
+            timeout: 5s
+
+    mongodb:
+        image: mongodb/mongodb-community-server:latest
+        container_name: mongodb
+        restart: always
+        ports:
+            - "27017:27017"
+        volumes:
+            - "mongodata:/data/db"
+            - "mongolog:/var/log/mongodb"
+        networks:
+            - app-network
+        healthcheck:
+            test: ["CMD", "mongo", "admin", "--eval", "db.stats()"]
+            retries: 3
+            timeout: 5s
+networks:
+    app-network:
+        driver: bridge
+
+volumes:
+    mysql_data:
+        driver: local
+    appredis:
+        driver: local
+    mongodata:
+        driver: local
+    mongolog:
+        driver: local

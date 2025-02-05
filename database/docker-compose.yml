@@ -3,6 +3,7 @@
 # Volumes: mysql_data, appredis, mongodata, mongolog
 # Networks: app-network
 # Healthcheck: test, retries, timeout
+name: mysql
 services:
   mysql:
     image: mysql:8.0
@@ -54,6 +55,26 @@ services:
       test: ["CMD", "mongo", "admin", "--eval", "db.stats()"]
       retries: 3
       timeout: 5s
+  
+  postgres:
+    image: postgres:latest
+    container_name: postgres
+    restart: always
+    environment:
+      POSTGRES_USER: "user"
+      POSTGRES_PASSWORD: "password"
+      POSTGRES_DB: "db"
+    ports:
+      - "5432:5432"
+    volumes:
+      - "postgres:/var/lib/postgresql/data"
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "user"]
+      retries: 3
+      timeout: 5s
+    
 networks:
   app-network:
     driver: bridge
@@ -66,4 +87,6 @@ volumes:
   mongodata:
     driver: local
   mongolog:
+    driver: local
+  postgres:
     driver: local
